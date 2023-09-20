@@ -1,0 +1,209 @@
+---
+title: "PBSE23_Poster"
+output: html_document
+date: "2023-09-18"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load packages
+library(tidyverse)
+library(fishtree)
+library(ggtree)
+library(MatrixModels)
+library(rfishbase)
+library(phytools)
+library(Rmisc)
+
+```
+
+Figures for 2023 PBSE Fall symposium
+
+```{r}
+
+# Extract eelpout phylogeny
+eelpout_phy <- fishtree_phylogeny(rank = "Zoarcidae", type=c("chronogram"))
+
+# How many species in phy object? 94
+length(eelpout_phy$tip.label)
+
+## Import habitat metadata from FishBase
+species_list <- tolower(gsub("_", " ", eelpout_phy$tip.label))
+  
+eelpout_dist <- data.frame(tip.label = tolower(distribution(species_list(Family = "Zoarcidae"))$Species),
+                           Region = distribution(species_list(Family = "Zoarcidae"))$FAO,
+                           Lat = distribution(species_list(Family = "Zoarcidae"))$LatDeg,
+                           NS = distribution(species_list(Family = "Zoarcidae"))$N_S)
+
+distribution(species_list(Family = "Zoarcidae"))
+
+# Create variable for whether row is Antarctic, Arctic, polar
+eelpout_dist$Polar <- ifelse(grepl("Arctic", eelpout_dist$Region) == TRUE, "Arctic",
+                             ifelse(grepl("Antarctic", eelpout_dist$Region) == TRUE, "Antarctic",
+                                    "Subpolar"))
+
+## Combine latitude with Zoarcid phylogeny object
+ggtree(eelpout_phy, layout = "circular") + theme_tree()
+
+eelpout_phy$tip.label <- tolower(gsub("_", " ", eelpout_phy$tip.label))
+
+eelpout_dist_filt <- filter(eelpout_dist, tip.label %in% eelpout_phy$tip.label)
+
+#Summarize latitude
+eelpout_dist_sum <- summarySE(measurevar = "Lat",
+                              groupvars = c("tip.label", "Polar"),
+                              data = eelpout_dist_filt)
+
+# Colored plot
+max_y <- max(eelpout_phy$edge.length)
+
+PBSE_Fig1 <- ggtree(eelpout_phy, layout = "circular", 
+       aes(color = Lat), size = .75) %<+% eelpout_dist_sum +
+  geom_tippoint(aes(shape = Polar), size = 3) +
+  scale_shape_manual(values = c(19,1,NA), na.translate = F) +
+  theme_tree() +
+  geom_treescale(width = 10, x = 4, y = 85, offset = 2) +
+  scale_color_viridis_c(direction = -1) +
+  theme_classic(base_size = 20) +
+  theme(legend.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        strip.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  labs(color = "Latitude", shape = "Region") +
+  geom_rect(xmin = max_y-2, xmax = max_y-3, ymin = -Inf, ymax = Inf, fill = "skyblue", alpha = 0.01, lty = 0) +
+  geom_rect(xmin = max_y-10, xmax = max_y-15, ymin = -Inf, ymax = Inf, fill = "pink", alpha = 0.01, lty = 0)
+
+
+
+PBSE_Fig1
+
+# Export poster fig 1
+ggsave(PBSE_Fig1,
+       units = "in", width = 12, height = 6, 
+       filename = "~/Documents/GitHub/PBSE23_Poster/PBSE_Fig1.png",
+       bg = "transparent")
+
+# Identify clades by name
+ggtree(eelpout_phy, layout = "circular", 
+       aes(color = Lat), size = .75) %<+% eelpout_dist_sum +
+  geom_tippoint(aes(shape = Polar), size = 3) +
+  scale_shape_manual(values = c(19,1,NA), na.translate = F) +
+  theme_tree() +
+  geom_treescale(width = 10, x = 4, y = 85, offset = 2) +
+  geom_tiplab() +
+  scale_color_viridis_c(direction = -1) +
+  theme_classic(base_size = 20) +
+  theme(legend.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        strip.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  labs(color = "Latitude", shape = "Region") +
+  geom_rect(xmin = max_y-2, xmax = max_y-3, ymin = -Inf, ymax = Inf, fill = "skyblue", alpha = 0.01, lty = 0) +
+  geom_rect(xmin = max_y-10, xmax = max_y-15, ymin = -Inf, ymax = Inf, fill = "pink", alpha = 0.01, lty = 0)
+
+```
+
+Calculate and plot speciation rates for Zoarcoidei suborder
+
+```{r}
+
+# Associate speciation rate and latitude
+rates <- fishtree_tip_rates(rank = "Cottoidei")
+
+rates <- data.frame(tip.label = tolower(gsub("_", " ", rates$species)), 
+                    dr = rates$lambda.tv)
+
+rownames(rates) <- rates$tip.label
+
+zoarcoidei_dist <- data.frame(tip.label = tolower(distribution(species_list(
+  Family = c("Zoarcidae","Anarhichadidae", "Cryptacanthodidae ", "Pholidae ", "Stichaeidae",
+                                     "Ptilichthyidae", "Bathymasteridae", "Scytalinidae", "Zaproridae", "Eulophiidae")))$Species),
+                           Region = distribution(species_list(
+                             Family = c("Zoarcidae","Anarhichadidae", "Cryptacanthodidae ", "Pholidae ", "Stichaeidae",
+                                     "Ptilichthyidae", "Bathymasteridae", "Scytalinidae", "Zaproridae", "Eulophiidae")))$FAO,
+                           Lat = distribution(species_list(
+                             Family = c("Zoarcidae","Anarhichadidae", "Cryptacanthodidae ", "Pholidae ", "Stichaeidae",
+                                     "Ptilichthyidae", "Bathymasteridae", "Scytalinidae", "Zaproridae", "Eulophiidae")))$LatDeg,
+                           NS = distribution(species_list(
+                             Family = c("Zoarcidae","Anarhichadidae", "Cryptacanthodidae ", "Pholidae ", "Stichaeidae",
+                                     "Ptilichthyidae", "Bathymasteridae", "Scytalinidae", "Zaproridae", "Eulophiidae")))$N_S)
+
+dist_rates <- merge(zoarcoidei_dist, rates)
+
+dist_rates_sum <- summarySE(measurevar = "dr", 
+                            groupvars = c("tip.label","Lat", "NS"),
+                            data = dist_rates)
+
+dist_rates_sum$NS_Lat <- ifelse(dist_rates_sum$NS == "N", dist_rates_sum$Lat,
+       (dist_rates_sum$Lat*-1))
+
+PBSE_Fig2 <- ggplot(data = dist_rates_sum,
+      aes(x = NS_Lat, y = dr)) +
+  geom_smooth(method = "lm", formula = y ~ poly(x,2)) +
+  theme_classic(base_size = 20) +
+  theme(legend.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        strip.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA)) +
+  labs(x = "Latitude", y = expression("Speciation rate (λ"[BAMM]~")"))
+
+PBSE_Fig2
+
+anova(lm(dr ~ poly(NS_Lat,2), data = dist_rates_sum))
+
+# Export poster fig 2
+ggsave(PBSE_Fig2,
+       units = "in", width = 4.5, height = 4, 
+       filename = "~/Documents/GitHub/PBSE23_Poster/PBSE_Fig2.png",
+       bg = "transparent")
+
+```
+
+Plot conceptual diagram of compensatory conformational flexibility
+
+```{r}
+
+# Create mock data
+cf_df <- data.frame(Process = c("Environmental temperature", "Environmental temperature",
+                                "Thermal stability", "Thermal stability",
+                                "Conformational flexibility", "Conformational flexibility"),
+                    x = c(0,1,0,1,0,1),
+                    y = c(1,0,0.5,0.5,0,1),
+                    error = c(0.1,0.1,0.1,0.1,0.1,0.1))
+
+# Plot
+PBSE_Fig3 <- ggplot(data = cf_df,
+       aes(x = x, y = y, color = Process, group = Process, fill = Process)) +
+  geom_ribbon(aes(ymin = y-error, ymax = y+error), lty = 0, alpha = 0.25) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic(base_size = 20) +
+  theme(legend.background = element_rect(fill = "transparent"),
+        panel.background = element_rect(fill = "transparent"),
+        strip.background = element_rect(fill = "transparent"),
+        plot.background = element_rect(fill = "transparent", color = NA),
+        legend.position = "right",
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 14)) +  
+  scale_fill_discrete(guide = "none") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  labs(x = "Latitude", y = NULL, color = "Variable")
+
+PBSE_Fig3
+
+# Export poster fig 1
+ggsave(PBSE_Fig3,
+       units = "in", width = 6, height = 4, 
+       filename = "~/Documents/GitHub/PBSE23_Poster/PBSE_Fig3.png",
+       bg = "transparent")
+
+```
+
